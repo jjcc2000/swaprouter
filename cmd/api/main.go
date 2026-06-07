@@ -44,6 +44,11 @@ func main() {
 	r.Use(chimiddleware.RealIP)
 	r.Use(chimiddleware.Recoverer)
 
+	auth := handlers.NewAuthHandler(rdb, cfg.JWTSecret)
+
+	r.Get("/auth/nonce", auth.Nonce)
+	r.Post("/auth/login", auth.Login)
+
 	// Public routes
 	r.Get("/health", handlers.HealthHandler)
 

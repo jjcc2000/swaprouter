@@ -10,20 +10,30 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/jjcc2000/swaprouter/internal/adapters/oneinch"
 	"github.com/jjcc2000/swaprouter/internal/aggregator"
 	"github.com/jjcc2000/swaprouter/internal/config"
+	"github.com/jjcc2000/swaprouter/internal/db"
 	"github.com/jjcc2000/swaprouter/internal/gateway/handlers"
 	"github.com/jjcc2000/swaprouter/internal/gateway/middleware"
+	"github.com/jjcc2000/swaprouter/internal/repository"
 	"github.com/jjcc2000/swaprouter/pkg/logger"
 )
 
 func main() {
 	godotenv.Load()
-
 	cfg, err := config.Load()
+	
 	if err != nil {
 		log.Fatal("config error:", err)
 	}
+
+	database, err := db.New(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal("db error:", err)
+	}
+
+	tradeRepo := repository.NewTradeRepository(database)
 
 	log := logger.New(cfg.Env)
 
@@ -35,7 +45,9 @@ func main() {
 	rdb := redis.NewClient(opt)
 
 	// Adapters — empty for now, added in next layer
-	adapters := []aggregator.IAdapter{}
+	adapters := []aggregator.IAdapter{
+		oneinch.New(cfg.OneInchAPIKey,cfg.OneInchBaseURL),
+	}
 
 	engine := aggregator.NewQuoteEngine(adapters, cfg.QuoteTimeoutMs)
 
@@ -58,8 +70,8 @@ func main() {
 		r.Use(middleware.RateLimiter(rdb, cfg.RateLimitRPM))
 
 		r.Get("/v1/quote", handlers.NewQuoteHandler(engine).ServeHTTP)
-		r.Post("/v1/swap", handlers.NewSwapHandler(engine).ServeHTTP)
-		r.Get("/v1/trades", handlers.TradesHandler)
+		r.Post("/v1/swap", handlers.NewSwapHandler(engine, tradeRepo).ServeHTTP)
+		r.Get("/v1/trades", handlers.NewTradesHandler(tradeRepo).ServeHTTP)
 		r.Get("/v1/tokens", handlers.TokensHandler)
 		r.Get("/v1/chains", handlers.ChainsHandler)
 	})

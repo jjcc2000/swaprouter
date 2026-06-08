@@ -9,10 +9,12 @@ import (
 	"github.com/jjcc2000/swaprouter/internal/aggregator"
 	"github.com/jjcc2000/swaprouter/internal/gateway/middleware"
 	"github.com/jjcc2000/swaprouter/internal/models"
-	
+	"github.com/jjcc2000/swaprouter/internal/repository"
 )
 
 type QuoteHandler struct{ engine *aggregator.QuoteEngine }
+
+type TradesHandler struct{ repo *repository.TradeRepository }
 
 func NewQuoteHandler(e *aggregator.QuoteEngine) *QuoteHandler { return &QuoteHandler{engine: e} }
 
@@ -54,9 +56,14 @@ func (h *QuoteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, quote)
 }
 
-type SwapHandler struct{ engine *aggregator.QuoteEngine }
+type SwapHandler struct {
+	engine *aggregator.QuoteEngine
+	repo   *repository.TradeRepository
+}
 
-func NewSwapHandler(e *aggregator.QuoteEngine) *SwapHandler { return &SwapHandler{engine: e} }
+func NewSwapHandler(e *aggregator.QuoteEngine, repo *repository.TradeRepository) *SwapHandler {
+	return &SwapHandler{engine: e, repo: repo}
+}
 
 func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req models.SwapRequest
@@ -75,12 +82,34 @@ func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 502, "SWAP_FAILED", err.Error())
 		return
 	}
+
+	// save trade to database
+	h.repo.Save(models.Trade{
+		TxHash:    result.TxHash,
+		Wallet:    result.Wallet,
+		Chain:     result.Chain,
+		Protocol:  result.Protocol,
+		FromToken: result.FromToken,
+		ToToken:   result.ToToken,
+		AmountIn:  result.AmountIn,
+		AmountOut: result.AmountOut,
+		Status:    result.Status,
+	})
 	writeJSON(w, 200, result)
 }
+func NewTradesHandler(repo *repository.TradeRepository) *TradesHandler {
+	return &TradesHandler{repo: repo}
+}
 
-func TradesHandler(w http.ResponseWriter, r *http.Request) {
+func (h *TradesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wallet := middleware.WalletFromContext(r.Context())
-	writeJSON(w, 200, map[string]interface{}{"wallet": wallet, "trades": []interface{}{}})
+	trades, err := h.repo.GetByWallet(wallet)
+	if err != nil {
+		writeError(w, 500, "DB_ERROR", "failed to fetch trades")
+		return
+	}
+
+	writeJSON(w, 200, map[string]interface{}{"wallet": wallet, "trades": trades})
 }
 
 func TokensHandler(w http.ResponseWriter, r *http.Request) {

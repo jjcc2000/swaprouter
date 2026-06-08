@@ -30,9 +30,11 @@ type SwapRequest struct {
 }
 
 type SwapResult struct {
-	TxHash    string    `json:"txHash"`
-	Chain     string    `json:"chain"`
-	Protocol  string    `json:"protocol"`
+	TxHash    string `json:"txHash"`
+	Chain     string `json:"chain"`
+	Protocol  string `json:"protocol"`
+	FromToken string `json:"fromToken"` 
+	ToToken   string `json:"toToken"`   
 	AmountIn  float64   `json:"amountIn"`
 	AmountOut float64   `json:"amountOut"`
 	Wallet    string    `json:"wallet"`

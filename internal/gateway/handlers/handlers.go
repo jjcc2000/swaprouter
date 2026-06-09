@@ -10,13 +10,20 @@ import (
 	"github.com/jjcc2000/swaprouter/internal/gateway/middleware"
 	"github.com/jjcc2000/swaprouter/internal/models"
 	"github.com/jjcc2000/swaprouter/internal/repository"
+	"github.com/redis/go-redis/v9"
 )
 
-type QuoteHandler struct{ engine *aggregator.QuoteEngine }
+type QuoteHandler struct {
+	engine *aggregator.QuoteEngine
+	rdb    *redis.Client
+}
 
 type TradesHandler struct{ repo *repository.TradeRepository }
 
-func NewQuoteHandler(e *aggregator.QuoteEngine) *QuoteHandler { return &QuoteHandler{engine: e} }
+func NewQuoteHandler(e *aggregator.QuoteEngine, rdb *redis.Client) *QuoteHandler {
+	return &QuoteHandler{
+		engine: e, rdb: rdb}
+}
 
 func (h *QuoteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -47,7 +54,7 @@ func (h *QuoteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), h.engine.Timeout())
 	defer cancel()
 
-	quote, err := h.engine.GetBestQuote(ctx, req)
+	quote, err := h.engine.GetBestQuote(ctx, req, h.rdb)
 	if err != nil {
 		writeError(w, 502, "QUOTE_FAILED", err.Error())
 		return

@@ -19,21 +19,23 @@ type Config struct {
 	OneInchAPIKey   string
 	OneInchBaseURL  string
 	JupiterBaseURL  string
+	JUPITER_API_KEY string
 	SolanaRPCURL    string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:           getEnv("PORT", "8080"),
-		Env:            getEnv("ENV", "development"),
-		JWTSecret:      mustEnv("JWT_SECRET"),
-		RedisURL:       getEnv("REDIS_URL", "redis://localhost:6379"),
-		DatabaseURL:    mustEnv("DATABASE_URL"),
-		UniswapRPCURL:  getEnv("UNISWAP_RPC_URL", ""),
-		OneInchAPIKey:  getEnv("ONEINCH_API_KEY", ""),
-		OneInchBaseURL: getEnv("ONEINCH_BASE_URL", "https://api.1inch.dev/swap/v6.0"),
-		JupiterBaseURL: getEnv("JUPITER_BASE_URL", "https://quote-api.jup.ag/v6"),
-		SolanaRPCURL:   getEnv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
+		Port:            getEnv("PORT", "8080"),
+		Env:             getEnv("ENV", "development"),
+		JWTSecret:       mustEnv("JWT_SECRET"),
+		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
+		DatabaseURL:     mustEnv("DATABASE_URL"),
+		UniswapRPCURL:   getEnv("UNISWAP_RPC_URL", ""),
+		OneInchAPIKey:   getEnv("ONEINCH_API_KEY", ""),
+		OneInchBaseURL:  getEnv("ONEINCH_BASE_URL", "https://api.1inch.dev/swap/v6.0"),
+		JupiterBaseURL:  getEnv("JUPITER_BASE_URL", "https://quote-api.jup.ag/v6"),
+		JUPITER_API_KEY: getEnv("JUPITER_API_KEY", ""),
+		SolanaRPCURL:    getEnv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
 	}
 
 	var err error

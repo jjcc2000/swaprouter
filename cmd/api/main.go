@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/jjcc2000/swaprouter/internal/adapters/jupiter"
 	"github.com/jjcc2000/swaprouter/internal/adapters/oneinch"
 	"github.com/jjcc2000/swaprouter/internal/aggregator"
 	"github.com/jjcc2000/swaprouter/internal/config"
@@ -23,7 +24,7 @@ import (
 func main() {
 	godotenv.Load()
 	cfg, err := config.Load()
-	
+
 	if err != nil {
 		log.Fatal("config error:", err)
 	}
@@ -46,7 +47,8 @@ func main() {
 
 	// Adapters — empty for now, added in next layer
 	adapters := []aggregator.IAdapter{
-		oneinch.New(cfg.OneInchAPIKey,cfg.OneInchBaseURL),
+		oneinch.New(cfg.OneInchAPIKey, cfg.OneInchBaseURL),
+		jupiter.New(cfg.JupiterBaseURL, cfg.JUPITER_API_KEY),
 	}
 
 	engine := aggregator.NewQuoteEngine(adapters, cfg.QuoteTimeoutMs)
@@ -69,7 +71,7 @@ func main() {
 		r.Use(middleware.Auth(cfg.JWTSecret))
 		r.Use(middleware.RateLimiter(rdb, cfg.RateLimitRPM))
 
-		r.Get("/v1/quote", handlers.NewQuoteHandler(engine).ServeHTTP)
+		r.Get("/v1/quote", handlers.NewQuoteHandler(engine, rdb).ServeHTTP)
 		r.Post("/v1/swap", handlers.NewSwapHandler(engine, tradeRepo).ServeHTTP)
 		r.Get("/v1/trades", handlers.NewTradesHandler(tradeRepo).ServeHTTP)
 		r.Get("/v1/tokens", handlers.TokensHandler)

@@ -1,6 +1,5 @@
 package aggregator
 
-
 import (
 	"context"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jjcc2000/swaprouter/internal/models"
+	"github.com/redis/go-redis/v9"
 )
 
 type IAdapter interface {
@@ -37,7 +37,7 @@ type quoteResult struct {
 	err   error
 }
 
-func (qe *QuoteEngine) GetBestQuote(ctx context.Context, req models.QuoteRequest) (*models.Quote, error) {
+func (qe *QuoteEngine) GetBestQuote(ctx context.Context, req models.QuoteRequest, rdb *redis.Client) (*models.Quote, error) {
 	ctx, cancel := context.WithTimeout(ctx, qe.timeout)
 	defer cancel()
 
@@ -72,7 +72,10 @@ func (qe *QuoteEngine) GetBestQuote(ctx context.Context, req models.QuoteRequest
 			req.FromToken, req.ToToken, req.Chain)
 	}
 
-	return bestQuote(quotes), nil
+	best := bestQuote(quotes)
+	rdb.Set(ctx, "quote:"+best.QuoteID, best, 30*time.Second)
+
+	return best, nil
 }
 
 func (qe *QuoteEngine) ExecuteSwap(ctx context.Context, req models.SwapRequest) (*models.SwapResult, error) {

@@ -11,6 +11,9 @@ services:
       - postgres
       - redis
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   postgres:
     image: postgres:16-alpine

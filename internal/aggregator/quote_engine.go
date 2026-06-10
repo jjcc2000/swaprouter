@@ -2,9 +2,11 @@ package aggregator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"sync"
+
 	"time"
 
 	"github.com/jjcc2000/swaprouter/internal/models"
@@ -13,12 +15,29 @@ import (
 
 type IAdapter interface {
 	GetQuote(ctx context.Context, req models.QuoteRequest) (*models.Quote, error)
+	GetSwapTx(ctx context.Context, quote *models.Quote, wallet string) (string, error)
 	Name() string
 }
-
+type quoteResult struct {
+	quote *models.Quote
+	err   error
+}
 type QuoteEngine struct {
 	adapters []IAdapter
 	timeout  time.Duration
+}
+
+func (qe *QuoteEngine) GetCachedQuote(ctx context.Context, rdb *redis.Client, quoteID string) (*models.Quote, error) {
+	fmt.Printf("[quote-engine] looking up quote: %s\n", quoteID)
+	data, err := rdb.Get(ctx, "quote:"+quoteID).Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	var quote models.Quote
+	json.Unmarshal(data, &quote)
+	return &quote, nil
+
 }
 
 func NewQuoteEngine(adapters []IAdapter, timeoutMs int) *QuoteEngine {
@@ -30,11 +49,6 @@ func NewQuoteEngine(adapters []IAdapter, timeoutMs int) *QuoteEngine {
 
 func (qe *QuoteEngine) Timeout() time.Duration {
 	return qe.timeout
-}
-
-type quoteResult struct {
-	quote *models.Quote
-	err   error
 }
 
 func (qe *QuoteEngine) GetBestQuote(ctx context.Context, req models.QuoteRequest, rdb *redis.Client) (*models.Quote, error) {
@@ -73,21 +87,52 @@ func (qe *QuoteEngine) GetBestQuote(ctx context.Context, req models.QuoteRequest
 	}
 
 	best := bestQuote(quotes)
-	rdb.Set(ctx, "quote:"+best.QuoteID, best, 30*time.Second)
-
+	data, err := json.Marshal(best)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("[quote-engine] caching quote: %s\n", best.QuoteID)
+	if err := rdb.Set(context.Background(), "quote:"+best.QuoteID, data, 5*time.Minute).Err(); err != nil {
+		fmt.Printf("[quote-engine] redis cache error: %v\n", err)
+	} else {
+		fmt.Printf("[quote-engine] quote cached successfully: %s\n", best.QuoteID)
+	}
 	return best, nil
 }
 
-func (qe *QuoteEngine) ExecuteSwap(ctx context.Context, req models.SwapRequest) (*models.SwapResult, error) {
-	// Execution engine comes in the next layer.
-	// For now returns a pending stub so the API compiles and runs.
-	return &models.SwapResult{
-		TxHash:    "0xpending",
-		Chain:     "ethereum",
-		Wallet:    req.Wallet,
-		Timestamp: time.Now(),
-		Status:    "pending",
-	}, nil
+func (qe *QuoteEngine) ExecuteSwap(ctx context.Context, req models.SwapRequest, rdb *redis.Client) (*models.SwapResult, error) {
+
+	var err error
+
+	cachedQuoute, err := qe.GetCachedQuote(ctx, rdb, req.QuoteID)
+	if err != nil {
+		return nil, fmt.Errorf("Error in the reading of caching: %v", err.Error())
+	}
+
+	fmt.Printf("Cached Quoute: %v", cachedQuoute)
+
+	for _, a := range qe.adapters {
+		if a.Name() == cachedQuoute.Protocol {
+			unsignedTx, err := a.GetSwapTx(ctx, cachedQuoute, req.Wallet)
+			if err != nil {
+				return nil, fmt.Errorf("swap tx error: %v", err)
+			}
+			return &models.SwapResult{
+				UnsignedTx: unsignedTx,
+				Protocol:   cachedQuoute.Protocol,
+				Chain:      cachedQuoute.Chain,
+				Wallet:     req.Wallet,
+				FromToken:  cachedQuoute.FromToken, // add
+				ToToken:    cachedQuoute.ToToken,   // add
+				AmountIn:   cachedQuoute.AmountIn,  // add
+				AmountOut:  cachedQuoute.AmountOut, // add
+				Timestamp:  time.Now(),             // add
+				Status:     "unsigned",
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("no adapter found for protocol: %s", cachedQuoute.Protocol)
+
 }
 
 func bestQuote(quotes []*models.Quote) *models.Quote {

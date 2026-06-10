@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -66,10 +67,11 @@ func (h *QuoteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type SwapHandler struct {
 	engine *aggregator.QuoteEngine
 	repo   *repository.TradeRepository
+	rdb    *redis.Client
 }
 
-func NewSwapHandler(e *aggregator.QuoteEngine, repo *repository.TradeRepository) *SwapHandler {
-	return &SwapHandler{engine: e, repo: repo}
+func NewSwapHandler(e *aggregator.QuoteEngine, repo *repository.TradeRepository, rdb *redis.Client) *SwapHandler {
+	return &SwapHandler{engine: e, repo: repo, rdb: rdb}
 }
 
 func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +85,9 @@ func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Wallet = middleware.WalletFromContext(r.Context())
-
-	result, err := h.engine.ExecuteSwap(r.Context(), req)
+	fmt.Printf("Req Wallet: %v", req.Wallet)
+	
+	result, err := h.engine.ExecuteSwap(r.Context(), req, h.rdb)
 	if err != nil {
 		writeError(w, 502, "SWAP_FAILED", err.Error())
 		return

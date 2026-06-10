@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type QuoteRequest struct {
 	FromToken string  `json:"fromToken"`
@@ -11,16 +14,17 @@ type QuoteRequest struct {
 }
 
 type Quote struct {
-	Protocol    string    `json:"protocol"`
-	FromToken   string    `json:"fromToken"`
-	ToToken     string    `json:"toToken"`
-	AmountIn    float64   `json:"amountIn"`
-	AmountOut   float64   `json:"amountOut"`
-	GasEstimate float64   `json:"gasEstimate"`
-	NetValue    float64   `json:"netValue"`
-	Chain       string    `json:"chain"`
-	ExpiresAt   time.Time `json:"expiresAt"`
-	QuoteID     string    `json:"quoteId"`
+	Protocol    string          `json:"protocol"`
+	FromToken   string          `json:"fromToken"`
+	ToToken     string          `json:"toToken"`
+	AmountIn    float64         `json:"amountIn"`
+	AmountOut   float64         `json:"amountOut"`
+	GasEstimate float64         `json:"gasEstimate"`
+	NetValue    float64         `json:"netValue"`
+	Chain       string          `json:"chain"`
+	ExpiresAt   time.Time       `json:"expiresAt"`
+	QuoteID     string          `json:"quoteId"`
+	Raw         json.RawMessage `json:"raw"`
 }
 
 type SwapRequest struct {
@@ -30,16 +34,17 @@ type SwapRequest struct {
 }
 
 type SwapResult struct {
-	TxHash    string `json:"txHash"`
-	Chain     string `json:"chain"`
-	Protocol  string `json:"protocol"`
-	FromToken string `json:"fromToken"` 
-	ToToken   string `json:"toToken"`   
-	AmountIn  float64   `json:"amountIn"`
-	AmountOut float64   `json:"amountOut"`
-	Wallet    string    `json:"wallet"`
-	Timestamp time.Time `json:"timestamp"`
-	Status    string    `json:"status"`
+	TxHash     string    `json:"txHash"`
+	Chain      string    `json:"chain"`
+	Protocol   string    `json:"protocol"`
+	FromToken  string    `json:"fromToken"`
+	ToToken    string    `json:"toToken"`
+	AmountIn   float64   `json:"amountIn"`
+	AmountOut  float64   `json:"amountOut"`
+	Wallet     string    `json:"wallet"`
+	Timestamp  time.Time `json:"timestamp"`
+	Status     string    `json:"status"`
+	UnsignedTx string    `json:"unsignedTx"`
 }
 
 type Trade struct {

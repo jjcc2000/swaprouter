@@ -26,6 +26,9 @@ func New(apiKey, baseURL string) *Adapter {
 }
 
 func (a *Adapter) Name() string { return "1inch" }
+func (a *Adapter) GetSwapTx(ctx context.Context, quote *models.Quote, wallet string) (string, error) {
+	return "", fmt.Errorf("not implemented yet")
+}
 
 func (a *Adapter) GetQuote(ctx context.Context, req models.QuoteRequest) (*models.Quote, error) {
 	chainId := chainID(req.Chain)

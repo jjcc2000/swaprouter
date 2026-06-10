@@ -1,10 +1,13 @@
 package jupiter
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jjcc2000/swaprouter/internal/models"
@@ -27,6 +30,8 @@ func New(baseURL string, apiKey string) *Adapter {
 func (a *Adapter) Name() string { return "jupiter" }
 
 func (a *Adapter) GetQuote(ctx context.Context, req models.QuoteRequest) (*models.Quote, error) {
+	var rawJson json.RawMessage
+
 	if req.Chain != "solana" {
 		return nil, fmt.Errorf("jupiter only supports solana")
 	}
@@ -51,14 +56,18 @@ func (a *Adapter) GetQuote(ctx context.Context, req models.QuoteRequest) (*model
 		return nil, fmt.Errorf("jupiter API error: %d", resp.StatusCode)
 	}
 
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	var result struct {
 		OutAmount            string `json:"outAmount"`
 		OtherAmountThreshold string `json:"otherAmountThreshold"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
+	json.Unmarshal(bodyBytes, &result)
 
+	json.Unmarshal(bodyBytes, &rawJson)
 	amountOut := float64(0)
 	fmt.Sscanf(result.OutAmount, "%f", &amountOut)
 	amountOut = amountOut / 1e6 // USDC has 6 decimals
@@ -73,5 +82,47 @@ func (a *Adapter) GetQuote(ctx context.Context, req models.QuoteRequest) (*model
 		Chain:     req.Chain,
 		ExpiresAt: time.Now().Add(30 * time.Second),
 		QuoteID:   fmt.Sprintf("jupiter-%d", time.Now().UnixNano()),
+		Raw:       rawJson,
 	}, nil
+}
+
+func (a *Adapter) GetSwapTx(ctx context.Context, quote *models.Quote, wallet string) (string, error) {
+
+	payload := map[string]interface{}{
+		"quoteResponse":    quote.Raw,
+		"userPublicKey":    wallet,
+		"wrapAndUnwrapSol": true,
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	url := strings.Replace(a.baseURL, "/quote", "", 1) + "/swap"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", a.apiKey)
+
+	resp, err := a.client.Do(httpReq)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("jupiter swap error: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		SwapTransaction string `json:"swapTransaction"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	return result.SwapTransaction, nil
 }

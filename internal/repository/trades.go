@@ -14,16 +14,25 @@ func NewTradeRepository(db *sql.DB) *TradeRepository {
 	return &TradeRepository{db: db}
 }
 
-func (r *TradeRepository) Save(t models.Trade) error {
+func (r *TradeRepository) UpdateStatus(tradeID, txHash, wallet, status string) error {
+	_, err := r.db.Exec(
+		`UPDATE trades SET status=$1, tx_hash=$2 WHERE id=$3 AND wallet=$4`,
+		status, txHash, tradeID, wallet,
+	)
+	return err
+}
 
-	_, err := r.db.Exec(`
+func (r *TradeRepository) Save(t models.Trade) (string, error) {
+
+	var id string
+	err := r.db.QueryRow(`
         INSERT INTO trades (tx_hash, wallet, chain, protocol, from_token, to_token, amount_in, amount_out, gas_paid, status)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        RETURNING id`,
 		t.TxHash, t.Wallet, t.Chain, t.Protocol,
 		t.FromToken, t.ToToken, t.AmountIn, t.AmountOut, t.GasPaid, t.Status,
-	)
-
-	return err
+	).Scan(&id)
+	return id, err
 }
 
 func (r *TradeRepository) GetByWallet(wallet string) ([]models.Trade, error) {

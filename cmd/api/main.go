@@ -72,6 +72,7 @@ func main() {
 		r.Use(middleware.RateLimiter(rdb, cfg.RateLimitRPM))
 
 		r.Post("/v1/swap", handlers.NewSwapHandler(engine, tradeRepo, rdb).ServeHTTP)
+		r.Patch("/v1/trades/confirm", handlers.NewConfirmTradeHandler(tradeRepo).ServeHTTP)
 		r.Get("/v1/quote", handlers.NewQuoteHandler(engine, rdb).ServeHTTP)
 		r.Get("/v1/trades", handlers.NewTradesHandler(tradeRepo).ServeHTTP)
 		r.Get("/v1/tokens", handlers.TokensHandler)

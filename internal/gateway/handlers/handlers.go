@@ -21,6 +21,32 @@ type QuoteHandler struct {
 
 type TradesHandler struct{ repo *repository.TradeRepository }
 
+type ConfirmTradeHandler struct{ repo *repository.TradeRepository }
+
+func NewConfirmTradeHandler(repo *repository.TradeRepository) *ConfirmTradeHandler {
+	return &ConfirmTradeHandler{repo: repo}
+}
+
+func (h *ConfirmTradeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		TxHash  string `json:"txHash"`
+		TradeId string `json:"tradeId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.TxHash == "" {
+		writeError(w, 400, "INVALID_BODY", "txHash is required")
+		return
+	}
+
+	wallet := middleware.WalletFromContext(r.Context())
+
+	if err := h.repo.UpdateStatus(body.TradeId, body.TxHash, wallet, "confirmed"); err != nil {
+		writeError(w, 500, "DB_ERROR", "failed to update trade")
+		return
+	}
+
+	writeJSON(w, 200, map[string]string{"status": "confirmed"})
+}
+
 func NewQuoteHandler(e *aggregator.QuoteEngine, rdb *redis.Client) *QuoteHandler {
 	return &QuoteHandler{
 		engine: e, rdb: rdb}
@@ -86,7 +112,7 @@ func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Wallet = middleware.WalletFromContext(r.Context())
 	fmt.Printf("Req Wallet: %v", req.Wallet)
-	
+
 	result, err := h.engine.ExecuteSwap(r.Context(), req, h.rdb)
 	if err != nil {
 		writeError(w, 502, "SWAP_FAILED", err.Error())
@@ -94,7 +120,7 @@ func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save trade to database
-	h.repo.Save(models.Trade{
+	tradeId, err := h.repo.Save(models.Trade{
 		TxHash:    result.TxHash,
 		Wallet:    result.Wallet,
 		Chain:     result.Chain,
@@ -105,6 +131,12 @@ func (h *SwapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		AmountOut: result.AmountOut,
 		Status:    result.Status,
 	})
+
+	if err != nil {
+		writeError(w, 500, "DB_ERROR", "failed to served the trade")
+		return
+	}
+	result.TradeID = tradeId
 	writeJSON(w, 200, result)
 }
 func NewTradesHandler(repo *repository.TradeRepository) *TradesHandler {

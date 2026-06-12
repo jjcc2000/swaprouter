@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/jjcc2000/swaprouter/internal/db"
 	"github.com/jjcc2000/swaprouter/internal/gateway/handlers"
 	"github.com/jjcc2000/swaprouter/internal/gateway/middleware"
+	"github.com/jjcc2000/swaprouter/internal/poller"
 	"github.com/jjcc2000/swaprouter/internal/repository"
 	"github.com/jjcc2000/swaprouter/pkg/logger"
 )
@@ -53,6 +55,11 @@ func main() {
 
 	engine := aggregator.NewQuoteEngine(adapters, cfg.QuoteTimeoutMs)
 
+
+	p := poller.New(tradeRepo, cfg.SolanaRPCURL, 10)
+	go p.Start(context.Background())
+
+
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
@@ -81,5 +88,5 @@ func main() {
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Info("SwapRouter running", "addr", addr)
-	http.ListenAndServe(addr, r)
+	log.Info("server stopped", "err", http.ListenAndServe(addr, r))
 }

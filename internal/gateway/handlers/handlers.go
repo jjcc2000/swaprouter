@@ -39,7 +39,7 @@ func (h *ConfirmTradeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	wallet := middleware.WalletFromContext(r.Context())
 
-	if err := h.repo.UpdateStatus(body.TradeId, body.TxHash, wallet, "confirmed"); err != nil {
+	if err := h.repo.UpdateStatus(body.TradeId, body.TxHash, wallet, "pending"); err != nil {
 		writeError(w, 500, "DB_ERROR", "failed to update trade")
 		return
 	}

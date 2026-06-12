@@ -33,7 +33,7 @@ func Load() (*Config, error) {
 		UniswapRPCURL:   getEnv("UNISWAP_RPC_URL", ""),
 		OneInchAPIKey:   getEnv("ONEINCH_API_KEY", ""),
 		OneInchBaseURL:  getEnv("ONEINCH_BASE_URL", "https://api.1inch.dev/swap/v6.0"),
-		JupiterBaseURL:  getEnv("JUPITER_BASE_URL", "https://quote-api.jup.ag/v6"),
+		JupiterBaseURL:  getEnv("JUPITER_BASE_URL", "https://api.jup.ag/swap/v1"),
 		JUPITER_API_KEY: getEnv("JUPITER_API_KEY", ""),
 		SolanaRPCURL:    getEnv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
 	}
@@ -47,7 +47,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("RATE_LIMIT_RPM: %w", err)
 	}
-	cfg.QuoteTimeoutMs, err = getEnvInt("QUOTE_TIMEOUT_MS", 300)
+	cfg.QuoteTimeoutMs, err = getEnvInt("QUOTE_TIMEOUT_MS", 3000)
 	if err != nil {
 		return nil, fmt.Errorf("QUOTE_TIMEOUT_MS: %w", err)
 	}

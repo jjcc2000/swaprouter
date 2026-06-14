@@ -34,7 +34,7 @@ type SwapRequest struct {
 }
 
 type SwapResult struct {
-	TradeID string `json:"tradeId"` // add this
+	TradeID string `json:"tradeId"` 
 	TxHash     string    `json:"txHash"`
 	Chain      string    `json:"chain"`
 	Protocol   string    `json:"protocol"`
